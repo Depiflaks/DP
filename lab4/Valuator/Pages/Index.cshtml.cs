@@ -12,18 +12,21 @@ public class IndexModel : PageModel
     private readonly IStorageService _storage;
     private readonly ITextAnalyzer _analyzer;
     private readonly IRankCalculationPublisher _rankCalculationPublisher;
+    private readonly IEventPublisher _eventPublisher;
 
     public IndexModel(
         ILogger<IndexModel> logger,
         IStorageService storage,
         ITextAnalyzer analyzer,
-        IRankCalculationPublisher rankCalculationPublisher
+        IRankCalculationPublisher rankCalculationPublisher,
+        IEventPublisher eventPublisher
     )
     {
         _logger = logger;
         _storage = storage;
         _analyzer = analyzer;
         _rankCalculationPublisher = rankCalculationPublisher;
+        _eventPublisher = eventPublisher;
     }
 
     public void OnGet()
@@ -42,6 +45,7 @@ public class IndexModel : PageModel
             _storage.SaveText(id, text);
             _storage.SaveSimilarity(id, similarity);
 
+            await _eventPublisher.PublishSimilarityCalculatedAsync(id, similarity);
             await _rankCalculationPublisher.PublishAsync(id);
         }
 

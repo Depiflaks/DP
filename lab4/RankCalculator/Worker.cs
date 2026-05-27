@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using RankCalculator.Messaging;
 using RankCalculator.Models;
 using RankCalculator.Services;
 using RankCalculator.Storage;
@@ -13,6 +14,7 @@ public class Worker : BackgroundService
     private readonly ILogger<Worker> _logger;
     private readonly ITextRankCalculator _textRankCalculator;
     private readonly IRankStorage _rankStorage;
+    private readonly IEventPublisher _eventPublisher;
 
     private IConnection? _connection;
     private IChannel? _channel;
@@ -20,11 +22,13 @@ public class Worker : BackgroundService
     public Worker(
         ILogger<Worker> logger,
         ITextRankCalculator textRankCalculator,
-        IRankStorage rankStorage)
+        IRankStorage rankStorage,
+        IEventPublisher eventPublisher)
     {
         _logger = logger;
         _textRankCalculator = textRankCalculator;
         _rankStorage = rankStorage;
+        _eventPublisher = eventPublisher;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -139,6 +143,7 @@ public class Worker : BackgroundService
             var rank = _textRankCalculator.CalculateRank(text);
 
             await _rankStorage.SaveRankAsync(message.TextId, rank);
+            await _eventPublisher.PublishRankCalculatedAsync(message.TextId, rank, cancellationToken);
 
             await _channel.BasicAckAsync(
                 deliveryTag: eventArgs.DeliveryTag,

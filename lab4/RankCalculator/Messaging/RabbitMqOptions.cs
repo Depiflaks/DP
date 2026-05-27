@@ -1,4 +1,4 @@
-namespace Valuator.Messaging;
+namespace RankCalculator.Messaging;
 
 public sealed class RabbitMqOptions
 {

@@ -1,0 +1,14 @@
+﻿@page
+@model Valuator.Pages.SummaryModel
+@{
+}
+
+@if (Model.IsRankCalculationCompleted)
+{
+    <p>Оценка содержания: @Model.Rank</p>
+}
+else
+{
+    <p>Оценка содержания не завершена</p>
+}
+<p>Плагиат: @Model.Similarity</p>

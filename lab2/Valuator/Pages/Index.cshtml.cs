@@ -29,16 +29,17 @@ public class IndexModel : PageModel
     public IActionResult OnPost(string text)
     {
         _logger.LogDebug(text);
-
         string id = Guid.NewGuid().ToString();
-
-        double rank = _analyzer.CalculateRank(text);
-        var allTexts = _storage.GetAllTexts();
-        double similarity = _analyzer.CalculateSimilarity(text, allTexts);
-        
-        _storage.SaveText(id, text);
-        _storage.SaveRank(id, rank);
-        _storage.SaveSimilarity(id, similarity);
+        if (!string.IsNullOrEmpty(text)) 
+        {
+            double rank = _analyzer.CalculateRank(text);
+            var allTexts = _storage.GetAllTexts();
+            double similarity = _analyzer.CalculateSimilarity(text, allTexts);
+            
+            _storage.SaveText(id, text);
+            _storage.SaveRank(id, rank);
+            _storage.SaveSimilarity(id, similarity);
+        }
 
         return Redirect($"summary?id={id}");
     }

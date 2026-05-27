@@ -6,7 +6,16 @@ public class TextAnalyzer : ITextAnalyzer
     {
         if (string.IsNullOrEmpty(text))
             return 0;
-        return text.Distinct().Count();
+        var nonAlphabetCount = 0;
+        int totalCount = text.Length;
+        foreach (char c in text) 
+        {
+            if (!char.IsLetter(c))
+            {
+                nonAlphabetCount++;
+            }
+        }
+        return (double)nonAlphabetCount / totalCount;
     }
 
     public double CalculateSimilarity(string newText, IEnumerable<string> existingTexts)
@@ -14,30 +23,15 @@ public class TextAnalyzer : ITextAnalyzer
         if (string.IsNullOrEmpty(newText) || !existingTexts.Any())
             return 0;
 
-        var newWords = newText.Split(new[] { ' ', '.', ',', '!', '?' }, StringSplitOptions.RemoveEmptyEntries)
-            .Select(w => w.ToLowerInvariant())
-            .ToHashSet();
+        var currSimilarity = 0;
 
-        double maxSimilarity = 0;
         foreach (var existing in existingTexts)
         {
-            var existingWords = existing.Split(new[] { ' ', '.', ',', '!', '?' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(w => w.ToLowerInvariant())
-                .ToHashSet();
-
-            if (!newWords.Any() && !existingWords.Any())
+            if (string.Equals(existing, newText, StringComparison.OrdinalIgnoreCase)) 
             {
-                maxSimilarity = Math.Max(maxSimilarity, 1.0);
-                continue;
+                currSimilarity = 1;
             }
-            if (!newWords.Any() || !existingWords.Any())
-                continue;
-
-            var intersection = newWords.Intersect(existingWords).Count();
-            var union = newWords.Union(existingWords).Count();
-            var jaccard = (double)intersection / union;
-            maxSimilarity = Math.Max(maxSimilarity, jaccard);
         }
-        return maxSimilarity;
+        return currSimilarity;
     }
 }

@@ -1,60 +1,53 @@
-# Задание 1
+# PA4. Шаблон взаимодействия Publisher-Subscriber (Издатель-Подписчик)
 
-## Контекст
+**Цель:** научиться организовывать взаимодействие компонентов РС на основе публикации событий и подписки на них
 
-**Valuator** - приложение помощник редактора.
+# Задание
 
-Пользователь с помощью формы на главной странице отправляет текст на обработку, после чего перенаправляется на страницу *summary*, где видит результат обработки.
+*Задание делается на базе задания PA3*
 
-Приложение предоставляет следующие функции:
+## 1. Добавить события в системе
 
-1. оценивает содержание;
-2. проверяет похожесть на другие тексты.
+>Ниже под *событием* понимается сообщение с информацией о событии, публикуемое в брокер сообщений.
 
-Результат оценки содержания - число *rank* в диапазоне [0..1], равное доле неалфавитных символов в тексте.
-Алфавитными считаются символы строчных и прописных букв латинского и русского алфавитов.
+Необходимо добавить публикацию двух типов событий:
 
-Проверка на похожесть делается на основе поиска дубликата текста среди ранее обработанных.
-Если найден дубликат, то *similarity* = 1, иначе 0.
+1. *RankCalculated* — возникает после вычисления и сохранения в БД значения метрики *rank*;
+2. *SimilarityCalculated* — возникает после вычисления и сохранения в БД значения метрики *similarity*
 
-## Задание
+События должны публиковаться компонентами, в которых производятся вычисления:
 
-Первое задание является ознакомительным. Прежде всего нужно ознакомиться с используемыми технологиями и инструментами:
+1. Фоновый сервис *RankCalculator* публикует событие *RankCalculated*
+2. Web-приложение *Valuator* публикует событие *SimilarityCalculated* в обработчике POST-запроса
 
-* научиться создавать и запускать Web-приложение на фреймворке Asp.Net Core Pages,
-* подключать к проекту Nuget библиотеки,
-* запускать пошаговую отладку приложения в среде разработки.
+Сообщения событий должны содержать информацию, относящуюся к контексту события:
 
-В предоставленном шаблоне приложения необходимо:
-1. Указать ваше имя и группу на странице About
-2. Дописать недостающий код  *(отмечен комментарием `// TODO: (pa1)`)*
-3. В качестве хранилища использовать key-value хранилище Redis.
+1. Идентификатор сущности или контекста — в нашем случае это идентификатор текста в БД
+2. Другие данные, описывающие изменение состояния системы в результате наступления события 
+    * Для *RankCalculated* разумно передавать значение оценки *rank*
+    * Для *SimilarityCalculated* — значение *similarity*
 
-# Материалы
+## 2. Добавить новый компонент
 
-## Инструменты разработки и программные компоненты
+Необходимо добавить новый компонент *EventsLogger*, который подписывается на оба события и выводит в консоль информацию о них:
 
-1. [ASP.NET Core 8.0](https://learn.microsoft.com/en-us/aspnet/core/getting-started/?view=aspnetcore-8.0)
-2. NoSQL база данных [Redis](https://redis.io/) (официальный docker-образ: [redis](https://hub.docker.com/_/redis))
-3. Рекомендуемые IDE: [VS Code](https://code.visualstudio.com/), Rider, Visual Studio
+1. Название типа события
+2. Идентификатор сущности или контекста
+3. Значение *rank* для события *RankCalculated*
+4. Значение *similarity* для события *SimilarityCalculated*
 
-## Статьи
+В скриптах автоматизации запуска либо в docker-compose.yaml нужно добавить команды для запуска и останова двух экземпляров *EventsLogger*
 
-_Это лишь рекомендации, подходящие материалы следует искать самостоятельно_
+## 3. Нарисовать C4 диаграмму контейнеров
 
-### Статьи по C#
+Перед сдачей работы следует нарисовать C4 диаграмму контейнеров со всеми компонентами системы, включая браузер:
 
-- [Learn C# in Y minutes](https://learnxinyminutes.com/csharp/)
-- Шпаргалки: 1) [Шпаргалка по C#](https://high.tealeaf.su/about-csharp.html); 2) [C# cheatsheet](https://reference-xi.vercel.app/cs.html); 3) [C# Cheatsheet (github.com)](https://github.com/jwill9999/C-Sharp-Cheatsheet)
-- [Roadmap for JavaScript and TypeScript developers learning C#](https://learn.microsoft.com/en-us/dotnet/csharp/tour-of-csharp/tips-for-javascript-developers)
-- [Roadmap for Java developers learning C#](https://learn.microsoft.com/en-us/dotnet/csharp/tour-of-csharp/tips-for-java-developers)
-- [Common C# code conventions](https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/coding-conventions)
+- диаграмму можно нарисовать на бумаге либо сделать в приложении [draw.io](https://github.com/jgraph/drawio-desktop/releases)
+- на диаграмме предстоит показать, как взаимодействуют сервисы Valuator, RankCalculator и EventsLogger
 
-### Статьи по Redis
+# Полезные ссылки
 
-- [Redis - Docker](https://www.w3schools.io/nosql/redis-docker-setup/)
-- [Run Redis with Docker Compose](https://kb.objectrocket.com/redis/run-redis-with-docker-compose-1055)
-- [NRedisStack guide (C#/.NET)](https://redis.ranebull.me/docs/latest/develop/clients/dotnet/)
-- [C#/.NET guide](https://master--redis-doc.netlify.app/docs/connect/clients/dotnet/)
-- [Redis as Primary Database in .NET 8 Web API](https://www.csharp.com/article/redis-as-primary-database-in-net-8-web-ap/)
-- [Using StackExchangeRedis to integrate Redis with a C# .NET app](https://duongnt.com/stackexchangeredis/)
+1. Описание шаблона "Издатель-Подписчик" https://docs.microsoft.com/en-us/azure/architecture/patterns/publisher-subscriber
+2. Руководство [RabbitMQ tutorial - Publish/Subscribe](https://www.rabbitmq.com/tutorials/tutorial-three-dotnet) для C#/.NET
+3. Руководство [RabbitMQ tutorial - Publish/Subscribe](https://www.rabbitmq.com/tutorials/tutorial-three-go) для Go
+4. Руководство [Core Publish-Subscribe in Messaging](https://examples.nats.io/examples/messaging/pub-sub/csharp) для NATS и C#/.NET

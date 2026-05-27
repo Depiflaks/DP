@@ -41,8 +41,7 @@ public class Program
 
         services.AddSingleton<IConnectionMultiplexer>(redis);
         services.AddSingleton(rabbitMqOptions);
-        services.AddSingleton<IRankCalculationPublisher, RabbitMqRankCalculationPublisher>();
-        services.AddSingleton<IEventPublisher, RabbitMqEventPublisher>();
+        services.AddSingleton<IMessagePublisher, RabbitMqMessagePublisher>();
 
         services.AddScoped<IStorageService, RedisStorageService>();
         services.AddScoped<ITextAnalyzer, TextAnalyzer>();

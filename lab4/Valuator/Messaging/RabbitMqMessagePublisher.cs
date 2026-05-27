@@ -4,7 +4,7 @@ using RabbitMQ.Client;
 
 namespace Valuator.Messaging;
 
-public sealed class RabbitMqEventPublisher : IEventPublisher, IAsyncDisposable
+public sealed class RabbitMqMessagePublisher : IMessagePublisher, IAsyncDisposable
 {
     private readonly RabbitMqOptions _options;
     private readonly SemaphoreSlim _lock = new(1, 1);
@@ -12,9 +12,24 @@ public sealed class RabbitMqEventPublisher : IEventPublisher, IAsyncDisposable
     private IConnection? _connection;
     private IChannel? _channel;
 
-    public RabbitMqEventPublisher(RabbitMqOptions options)
+    public RabbitMqMessagePublisher(RabbitMqOptions options)
     {
         _options = options;
+    }
+
+    public async Task PublishRankCalculationAsync(string textId, CancellationToken cancellationToken = default)
+    {
+        var message = new RankCalculationMessage
+        {
+            TextId = textId
+        };
+
+        await PublishInternalAsync(
+            exchange: string.Empty, 
+            routingKey: _options.QueueName, 
+            message: message, 
+            cancellationToken: cancellationToken
+        );
     }
 
     public async Task PublishSimilarityCalculatedAsync(string textId, double similarity, CancellationToken cancellationToken = default)
@@ -25,10 +40,15 @@ public sealed class RabbitMqEventPublisher : IEventPublisher, IAsyncDisposable
             Similarity = similarity
         };
 
-        await PublishEventAsync(similarityEvent, cancellationToken);
+        await PublishInternalAsync(
+            exchange: _options.EventsExchange, 
+            routingKey: string.Empty, 
+            message: similarityEvent, 
+            cancellationToken: cancellationToken
+        );
     }
 
-    private async Task PublishEventAsync<T>(T eventData, CancellationToken cancellationToken) where T : class
+    private async Task PublishInternalAsync<T>(string exchange, string routingKey, T message, CancellationToken cancellationToken)
     {
         await _lock.WaitAsync(cancellationToken);
 
@@ -36,7 +56,7 @@ public sealed class RabbitMqEventPublisher : IEventPublisher, IAsyncDisposable
         {
             await EnsureConnectedAsync(cancellationToken);
 
-            var json = JsonSerializer.Serialize(eventData);
+            var json = JsonSerializer.Serialize(message);
             var body = Encoding.UTF8.GetBytes(json);
 
             var properties = new BasicProperties
@@ -46,8 +66,8 @@ public sealed class RabbitMqEventPublisher : IEventPublisher, IAsyncDisposable
             };
 
             await _channel!.BasicPublishAsync(
-                exchange: _options.EventsExchange,
-                routingKey: string.Empty,
+                exchange: exchange,
+                routingKey: routingKey,
                 mandatory: false,
                 basicProperties: properties,
                 body: body,
@@ -74,6 +94,15 @@ public sealed class RabbitMqEventPublisher : IEventPublisher, IAsyncDisposable
 
         _connection = await factory.CreateConnectionAsync(cancellationToken);
         _channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
+
+        await _channel.QueueDeclareAsync(
+            queue: _options.QueueName,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: null,
+            cancellationToken: cancellationToken
+        );
 
         await _channel.ExchangeDeclareAsync(
             exchange: _options.EventsExchange,

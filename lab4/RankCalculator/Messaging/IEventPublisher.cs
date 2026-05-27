@@ -1,6 +1,6 @@
 using RankCalculator.Models;
 
-namespace RankCalculator.Services;
+namespace RankCalculator;
 
 public interface IEventPublisher
 {

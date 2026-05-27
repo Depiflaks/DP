@@ -32,6 +32,7 @@ services:
       - RABBITMQ_USER=valuator
       - RABBITMQ_PASSWORD=valuator
       - RABBITMQ_QUEUE=rank-calculation
+      - RABBITMQ_EVENTS_EXCHANGE=events
     expose:
       - "5000"
     depends_on:
@@ -50,6 +51,7 @@ services:
       - RABBITMQ_USER=valuator
       - RABBITMQ_PASSWORD=valuator
       - RABBITMQ_QUEUE=rank-calculation
+      - RABBITMQ_EVENTS_EXCHANGE=events
     depends_on:
       - redis
       - rabbitmq
@@ -65,6 +67,20 @@ services:
       - ./Valuator/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - valuator-app
+    networks:
+      - valuator-network
+
+  events-logger:
+    build:
+      context: ./EventsLogger
+      dockerfile: Dockerfile
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=valuator
+      - RABBITMQ_PASSWORD=valuator
+      - RABBITMQ_EVENTS_EXCHANGE=events
+    depends_on:
+      - rabbitmq
     networks:
       - valuator-network
 

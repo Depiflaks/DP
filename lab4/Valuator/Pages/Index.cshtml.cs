@@ -11,22 +11,19 @@ public class IndexModel : PageModel
     private readonly ILogger<IndexModel> _logger;
     private readonly IStorageService _storage;
     private readonly ITextAnalyzer _analyzer;
-    private readonly IRankCalculationPublisher _rankCalculationPublisher;
-    private readonly IEventPublisher _eventPublisher;
+    private readonly IMessagePublisher _messagePublisher;
 
     public IndexModel(
         ILogger<IndexModel> logger,
         IStorageService storage,
         ITextAnalyzer analyzer,
-        IRankCalculationPublisher rankCalculationPublisher,
-        IEventPublisher eventPublisher
+        IMessagePublisher messagePublisher
     )
     {
         _logger = logger;
         _storage = storage;
         _analyzer = analyzer;
-        _rankCalculationPublisher = rankCalculationPublisher;
-        _eventPublisher = eventPublisher;
+        _messagePublisher = messagePublisher;
     }
 
     public void OnGet()
@@ -45,8 +42,8 @@ public class IndexModel : PageModel
             _storage.SaveText(id, text);
             _storage.SaveSimilarity(id, similarity);
 
-            await _eventPublisher.PublishSimilarityCalculatedAsync(id, similarity);
-            await _rankCalculationPublisher.PublishAsync(id);
+            await _messagePublisher.PublishSimilarityCalculatedAsync(id, similarity);
+            await _messagePublisher.PublishRankCalculationAsync(id);
         }
 
         return Redirect($"summary?id={id}");

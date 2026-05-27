@@ -5,11 +5,6 @@ using RankCalculator.Models;
 
 namespace RankCalculator;
 
-public interface IEventPublisher
-{
-    Task PublishRankCalculatedAsync(string textId, double rank, CancellationToken cancellationToken = default);
-}
-
 public sealed class RabbitMqEventPublisher : IEventPublisher, IAsyncDisposable
 {
     private readonly RabbitMqOptions _options;

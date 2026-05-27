@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Valuator.Services;
 
 namespace Valuator.Pages;
+
 public class SummaryModel : PageModel
 {
     private readonly ILogger<SummaryModel> _logger;
@@ -19,14 +20,20 @@ public class SummaryModel : PageModel
         _storage = storage;
     }
 
-    public double Rank { get; set; }
+    public double? Rank { get; set; }
     public double Similarity { get; set; }
+    public bool IsRankCalculationCompleted { get; set; }
 
     public void OnGet(string id)
     {
         _logger.LogDebug(id);
 
-        Rank = _storage.GetRank(id);
+        IsRankCalculationCompleted = _storage.HasRank(id);
+        if (IsRankCalculationCompleted)
+        {
+            Rank = _storage.GetRank(id);
+        }
+
         Similarity = _storage.GetSimilarity(id);
     }
 }

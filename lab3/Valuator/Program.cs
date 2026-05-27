@@ -1,4 +1,5 @@
 using StackExchange.Redis;
+using Valuator.Messaging;
 using Valuator.Services;
 
 namespace Valuator;
@@ -13,7 +14,6 @@ public class Program
 
         var app = builder.Build();
 
-        // Configure the HTTP request pipeline.
         if (!app.Environment.IsDevelopment())
         {
             app.UseExceptionHandler("/Error");
@@ -26,12 +26,6 @@ public class Program
 
         app.MapRazorPages();
 
-        // TODO: only for testing
-        app.MapGet("/instance", () => new
-        {
-            Instance = Environment.MachineName
-        });
-
         app.Run();
     }
 
@@ -40,7 +34,12 @@ public class Program
         var redisHost = Environment.GetEnvironmentVariable("REDIS_HOST") ?? "localhost";
         var redis = ConnectionMultiplexer.Connect($"{redisHost}:6379,abortConnect=false");
 
+        var rabbitMqOptions = RabbitMqOptions.FromEnvironment();
+
         services.AddSingleton<IConnectionMultiplexer>(redis);
+        services.AddSingleton(rabbitMqOptions);
+        services.AddSingleton<IRankCalculationPublisher, RabbitMqRankCalculationPublisher>();
+
         services.AddScoped<IStorageService, RedisStorageService>();
         services.AddScoped<ITextAnalyzer, TextAnalyzer>();
 

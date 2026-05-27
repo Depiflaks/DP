@@ -8,5 +8,6 @@ public interface IStorageService
     string? GetText(string id);
     double GetRank(string id);
     double GetSimilarity(string id);
+    bool HasRank(string id);
     IEnumerable<string> GetAllTexts();
 }

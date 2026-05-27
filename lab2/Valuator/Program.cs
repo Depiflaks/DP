@@ -1,5 +1,5 @@
 using StackExchange.Redis;
-using Valuator.Services; 
+using Valuator.Services;
 
 namespace Valuator;
 
@@ -26,17 +26,23 @@ public class Program
 
         app.MapRazorPages();
 
+        app.MapGet("/instance", () => new
+        {
+            Instance = Environment.MachineName
+        });
+
         app.Run();
     }
 
     private static void RegisterServices(IServiceCollection services)
     {
-        var redis = ConnectionMultiplexer.Connect("localhost:6379");
+        var redisHost = Environment.GetEnvironmentVariable("REDIS_HOST") ?? "localhost";
+        var redis = ConnectionMultiplexer.Connect($"{redisHost}:6379,abortConnect=false");
+
         services.AddSingleton<IConnectionMultiplexer>(redis);
-        
         services.AddScoped<IStorageService, RedisStorageService>();
         services.AddScoped<ITextAnalyzer, TextAnalyzer>();
-        
+
         services.AddRazorPages();
     }
 }

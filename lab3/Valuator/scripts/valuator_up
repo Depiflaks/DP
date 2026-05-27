@@ -1,0 +1,13 @@
+#!/bin/sh
+
+REPLICAS=${1:-2}
+
+case "$REPLICAS" in
+  ''|*[!0-9]*)
+    echo "Usage: ./scripts/start.sh <replicas_count>"
+    echo "Example: ./scripts/start.sh 2"
+    exit 1
+    ;;
+esac
+
+docker compose up --build --scale valuator-app="$REPLICAS" -d

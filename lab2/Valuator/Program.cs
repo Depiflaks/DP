@@ -26,6 +26,7 @@ public class Program
 
         app.MapRazorPages();
 
+        // TODO: only for testing
         app.MapGet("/instance", () => new
         {
             Instance = Environment.MachineName

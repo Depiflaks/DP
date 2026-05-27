@@ -1,33 +1,17 @@
-Для бубнты надо поставить редис
+Для бубнты надо поставить dotnet
 
 ```bash
-sudo apt install redis-server
+sudo apt install -y dotnet-sdk-10.0
 ```
 
-Запустить
+Запустить и опустить:
 ```bash
-redis-server
-dotnet add package StackExchange.Redis
+./bin/valuator_up
+./bin/valuator_down
 ```
 
-Запустить через докер
+Для тестирования:
 ```bash
-docker run --name redis -p 6379:6379 -d redis
+for i in $(seq 1 10); do curl http://localhost:8080/instance; echo; done
 ```
 
-Прибить локальный редис
-```bash
-sudo lsof -i :6379
-```
-
-Сбилдить c++++
-```bash
-dotnet run
-```
-
-Зайти в редис
-```bash
-docker exec -it redis redis-cli
-KEYS *
-GET "..."
-```

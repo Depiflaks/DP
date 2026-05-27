@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using StackExchange.Redis;
 using Valuator.Messaging;
 using Valuator.Services;
@@ -35,6 +36,8 @@ public class Program
         var redis = ConnectionMultiplexer.Connect($"{redisHost}:6379,abortConnect=false");
 
         var rabbitMqOptions = RabbitMqOptions.FromEnvironment();
+
+        services.AddDataProtection().PersistKeysToStackExchangeRedis(redis, "DataProtection-Keys");
 
         services.AddSingleton<IConnectionMultiplexer>(redis);
         services.AddSingleton(rabbitMqOptions);

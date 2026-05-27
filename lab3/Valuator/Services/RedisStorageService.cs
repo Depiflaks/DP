@@ -58,6 +58,6 @@ public class RedisStorageService : IStorageService
 
     public bool HasRank(string id)
     {
-        return _redisDb.KeyExists($"rank:{id}");
+        return _redisDb.KeyExists($"RANK-{id}");
     }
 }

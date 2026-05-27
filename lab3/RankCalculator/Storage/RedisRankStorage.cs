@@ -14,7 +14,7 @@ public class RedisRankStorage : IRankStorage
 
     public async Task<string?> GetTextAsync(string textId)
     {
-        var value = await _database.StringGetAsync($"text:{textId}");
+        var value = await _database.StringGetAsync($"TEXT-{textId}");
 
         if (value.IsNullOrEmpty)
             return null;
@@ -25,7 +25,7 @@ public class RedisRankStorage : IRankStorage
     public Task SaveRankAsync(string textId, double rank)
     {
         return _database.StringSetAsync(
-            $"rank:{textId}",
+            $"RANK-{textId}",
             rank.ToString(CultureInfo.InvariantCulture)
         );
     }

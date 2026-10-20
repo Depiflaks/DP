@@ -1,0 +1,26 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Главная";
+}
+
+<div class="text-center">
+    <form method="post">
+        <div>
+            <label asp-for="Country">Страна гражданства:</label>
+            <select asp-for="Country" required>
+                <option value="">Выберите страну</option>
+                @foreach (var country in Model.CountryOptions)
+                {
+                    <option value="@country">@country</option>
+                }
+            </select>
+            <span asp-validation-for="Country" class="text-danger"></span>
+        </div>
+        <div class="col-2">Текст для оценки:</div>
+        <div class="col-10">
+            <textarea name="text" rows="5" cols="50"></textarea>
+            <input type="submit" />
+        </div>
+    </form>
+</div>

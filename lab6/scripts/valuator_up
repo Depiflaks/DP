@@ -1,0 +1,24 @@
+#!/bin/sh
+
+APP_REPLICAS=${1:-1}
+CALC_REPLICAS=${2:-1}
+
+case "$APP_REPLICAS" in
+  ''|*[!0-9]*)
+    echo "Usage: ./scripts/valuator_up.sh <app_replicas_count> [calc_replicas_count]"
+    echo "Example: ./scripts/valuator_up.sh 3 4"
+    exit 1
+    ;;
+esac
+
+case "$CALC_REPLICAS" in
+  ''|*[!0-9]*)
+    echo "Usage: ./scripts/valuator_up.sh <app_replicas_count> [calc_replicas_count]"
+    echo "Example: ./scripts/valuator_up.sh 3 4"
+    exit 1
+    ;;
+esac
+
+docker compose up --build \
+  --scale valuator-app="$APP_REPLICAS" \
+  --scale rank-calculator="$CALC_REPLICAS"

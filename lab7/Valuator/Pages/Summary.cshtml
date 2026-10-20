@@ -1,0 +1,15 @@
+@page
+@model Valuator.Pages.SummaryModel
+
+<div id="summary" data-text-id="@Model.TextId" data-completed="@Model.IsRankCalculationCompleted.ToString().ToLowerInvariant()">
+    <p id="rank" role="status" aria-live="polite">@(Model.IsRankCalculationCompleted
+        ? $"Оценка содержания: {Model.Rank}"
+        : "Оценка содержания не завершена")</p>
+    <p>Плагиат: @Model.Similarity</p>
+    <p id="connection-status" role="status" aria-live="polite"></p>
+</div>
+
+@section Scripts {
+    <script src="~/lib/signalr/signalr.min.js"></script>
+    <script src="~/js/summary.js" asp-append-version="true"></script>
+}

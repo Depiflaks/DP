@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using RankCalculator.Messaging;
 using RankCalculator.Models;
 using RankCalculator.Services;
 using RankCalculator.Storage;
@@ -33,54 +32,55 @@ public class Worker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "localhost";
-        var rabbitUser = Environment.GetEnvironmentVariable("RABBITMQ_USER") ?? "guest";
-        var rabbitPassword = Environment.GetEnvironmentVariable("RABBITMQ_PASSWORD") ?? "guest";
         var queueName = Environment.GetEnvironmentVariable("RABBITMQ_QUEUE") ?? "rank-calculation";
+        await ConnectAsync(stoppingToken);
+        await ConfigureQueueAsync(queueName, stoppingToken);
+        await StartConsumerAsync(queueName, stoppingToken);
 
+        _logger.LogInformation("RankCalculator is listening queue {QueueName}", queueName);
+        await Task.Delay(Timeout.Infinite, stoppingToken);
+    }
+
+    private async Task ConnectAsync(CancellationToken cancellationToken)
+    {
         var factory = new ConnectionFactory
         {
-            HostName = rabbitHost,
-            UserName = rabbitUser,
-            Password = rabbitPassword
+            HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "localhost",
+            UserName = Environment.GetEnvironmentVariable("RABBITMQ_USER") ?? "guest",
+            Password = Environment.GetEnvironmentVariable("RABBITMQ_PASSWORD") ?? "guest"
         };
 
-        _connection = await CreateConnectionWithRetryAsync(factory, stoppingToken);
-        _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
+        _connection = await CreateConnectionWithRetryAsync(factory, cancellationToken);
+        _channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
+    }
 
-        await _channel.QueueDeclareAsync(
+    private async Task ConfigureQueueAsync(string queueName, CancellationToken cancellationToken)
+    {
+        await _channel!.QueueDeclareAsync(
             queue: queueName,
             durable: true,
             exclusive: false,
             autoDelete: false,
             arguments: null,
-            cancellationToken: stoppingToken
-        );
+            cancellationToken: cancellationToken);
 
         await _channel.BasicQosAsync(
             prefetchSize: 0,
             prefetchCount: 1,
             global: false,
-            cancellationToken: stoppingToken
-        );
+            cancellationToken: cancellationToken);
+    }
 
-        var consumer = new AsyncEventingBasicConsumer(_channel);
+    private async Task StartConsumerAsync(string queueName, CancellationToken cancellationToken)
+    {
+        var consumer = new AsyncEventingBasicConsumer(_channel!);
+        consumer.ReceivedAsync += (_, eventArgs) => ProcessMessageAsync(eventArgs, cancellationToken);
 
-        consumer.ReceivedAsync += async (_, eventArgs) =>
-        {
-            await ProcessMessageAsync(eventArgs, stoppingToken);
-        };
-
-        await _channel.BasicConsumeAsync(
+        await _channel!.BasicConsumeAsync(
             queue: queueName,
             autoAck: false,
             consumer: consumer,
-            cancellationToken: stoppingToken
-        );
-
-        _logger.LogInformation("RankCalculator is listening queue {QueueName}", queueName);
-
-        await Task.Delay(Timeout.Infinite, stoppingToken);
+            cancellationToken: cancellationToken);
     }
 
     private async Task<IConnection> CreateConnectionWithRetryAsync(
@@ -108,62 +108,68 @@ public class Worker : BackgroundService
         CancellationToken cancellationToken)
     {
         if (_channel is null)
+        {
             return;
+        }
 
         try
         {
-            var body = eventArgs.Body.ToArray();
-            var json = Encoding.UTF8.GetString(body);
-            var message = JsonSerializer.Deserialize<RankCalculationMessage>(json);
-
-            if (message is null || string.IsNullOrWhiteSpace(message.TextId))
-            {
-                await _channel.BasicRejectAsync(
-                    deliveryTag: eventArgs.DeliveryTag,
-                    requeue: false,
-                    cancellationToken: cancellationToken
-                );
-
-                return;
-            }
-
-            var text = await _rankStorage.GetTextAsync(message.TextId);
-
-            if (text is null)
-            {
-                await _channel.BasicRejectAsync(
-                    deliveryTag: eventArgs.DeliveryTag,
-                    requeue: false,
-                    cancellationToken: cancellationToken
-                );
-
-                return;
-            }
-
-            var rank = _textRankCalculator.CalculateRank(text);
-
-            await _rankStorage.SaveRankAsync(message.TextId, rank);
-            await _eventPublisher.PublishRankCalculatedAsync(message.TextId, rank, cancellationToken);
-
-            await _channel.BasicAckAsync(
-                deliveryTag: eventArgs.DeliveryTag,
-                multiple: false,
-                cancellationToken: cancellationToken
-            );
-
-            _logger.LogInformation("Rank calculated for text {TextId}: {Rank}", message.TextId, rank);
+            await CalculateRankAsync(eventArgs, cancellationToken);
         }
         catch (Exception exception)
         {
             _logger.LogError(exception, "Message processing failed");
-
             await _channel.BasicNackAsync(
                 deliveryTag: eventArgs.DeliveryTag,
                 multiple: false,
                 requeue: true,
-                cancellationToken: cancellationToken
-            );
+                cancellationToken: cancellationToken);
         }
+    }
+
+    private async Task CalculateRankAsync(
+        BasicDeliverEventArgs eventArgs,
+        CancellationToken cancellationToken)
+    {
+        var json = Encoding.UTF8.GetString(eventArgs.Body.ToArray());
+        var message = JsonSerializer.Deserialize<RankCalculationMessage>(json);
+        if (message is null || string.IsNullOrWhiteSpace(message.TextId))
+        {
+            await RejectMessageAsync(eventArgs.DeliveryTag, cancellationToken);
+            return;
+        }
+
+        var text = await _rankStorage.GetTextAsync(message.TextId);
+        if (text is null)
+        {
+            await RejectMessageAsync(eventArgs.DeliveryTag, cancellationToken);
+            return;
+        }
+
+        await SaveRankAsync(message.TextId, text, eventArgs.DeliveryTag, cancellationToken);
+    }
+
+    private async Task SaveRankAsync(
+        string textId, string text, ulong deliveryTag, CancellationToken cancellationToken)
+    {
+        var rank = _textRankCalculator.CalculateRank(text);
+        await _rankStorage.SaveRankAsync(textId, rank);
+        await _eventPublisher.PublishRankCalculatedAsync(textId, rank, cancellationToken);
+
+        await _channel!.BasicAckAsync(
+            deliveryTag: deliveryTag,
+            multiple: false,
+            cancellationToken: cancellationToken);
+
+        _logger.LogInformation("Rank calculated for text {TextId}: {Rank}", textId, rank);
+    }
+
+    private async Task RejectMessageAsync(ulong deliveryTag, CancellationToken cancellationToken)
+    {
+        await _channel!.BasicRejectAsync(
+            deliveryTag: deliveryTag,
+            requeue: false,
+            cancellationToken: cancellationToken);
     }
 
     public override void Dispose()

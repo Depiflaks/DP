@@ -31,49 +31,55 @@ public class EventsLoggerService : BackgroundService
         _connection = await CreateConnectionWithRetryAsync(factory, stoppingToken);
         _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
 
-        await _channel.ExchangeDeclareAsync(
+        var queueName = await ConfigureQueueAsync(stoppingToken);
+        await StartConsumerAsync(queueName, stoppingToken);
+
+        _logger.LogInformation("EventsLogger started listening to exchange {ExchangeName}", _options.EventsExchange);
+        await Task.Delay(Timeout.Infinite, stoppingToken);
+    }
+
+    private async Task<string> ConfigureQueueAsync(CancellationToken cancellationToken)
+    {
+        await _channel!.ExchangeDeclareAsync(
             exchange: _options.EventsExchange,
             type: ExchangeType.Fanout,
             durable: true,
             autoDelete: false,
             arguments: null,
-            cancellationToken: stoppingToken
-        );
+            cancellationToken: cancellationToken);
 
-        var queueName = await _channel.QueueDeclareAsync(
+        var queue = await _channel.QueueDeclareAsync(
             queue: string.Empty,
             durable: false,
             exclusive: true,
             autoDelete: true,
             arguments: null,
-            cancellationToken: stoppingToken
-        );
+            cancellationToken: cancellationToken);
 
         await _channel.QueueBindAsync(
-            queue: queueName.QueueName,
+            queue: queue.QueueName,
             exchange: _options.EventsExchange,
             routingKey: string.Empty,
             arguments: null,
-            cancellationToken: stoppingToken
-        );
+            cancellationToken: cancellationToken);
 
-        var consumer = new AsyncEventingBasicConsumer(_channel);
+        return queue.QueueName;
+    }
 
-        consumer.ReceivedAsync += async (_, eventArgs) =>
+    private async Task StartConsumerAsync(string queueName, CancellationToken cancellationToken)
+    {
+        var consumer = new AsyncEventingBasicConsumer(_channel!);
+        consumer.ReceivedAsync += (_, eventArgs) =>
         {
-            await ProcessEventAsync(eventArgs, stoppingToken);
+            ProcessEvent(eventArgs);
+            return Task.CompletedTask;
         };
 
-        await _channel.BasicConsumeAsync(
-            queue: queueName.QueueName,
+        await _channel!.BasicConsumeAsync(
+            queue: queueName,
             autoAck: true,
             consumer: consumer,
-            cancellationToken: stoppingToken
-        );
-
-        _logger.LogInformation("EventsLogger started listening to exchange {ExchangeName}", _options.EventsExchange);
-
-        await Task.Delay(Timeout.Infinite, stoppingToken);
+            cancellationToken: cancellationToken);
     }
 
     private async Task<IConnection> CreateConnectionWithRetryAsync(
@@ -96,37 +102,39 @@ public class EventsLoggerService : BackgroundService
         throw new OperationCanceledException(cancellationToken);
     }
 
-    private async Task ProcessEventAsync(BasicDeliverEventArgs eventArgs, CancellationToken cancellationToken)
+    private void ProcessEvent(BasicDeliverEventArgs eventArgs)
     {
         try
         {
-            var body = eventArgs.Body.ToArray();
-            var json = Encoding.UTF8.GetString(body);
-            var document = JsonDocument.Parse(json);
-
-            var root = document.RootElement;
-
-            if (root.TryGetProperty("EventType", out var eventTypeElement))
-            {
-                var eventType = eventTypeElement.GetString();
-
-                if (eventType == "RankCalculated")
-                {
-                    LogRankCalculatedEvent(root);
-                }
-                else if (eventType == "SimilarityCalculated")
-                {
-                    LogSimilarityCalculatedEvent(root);
-                }
-                else
-                {
-                    _logger.LogWarning("Unknown event type: {EventType}", eventType);
-                }
-            }
+            var json = Encoding.UTF8.GetString(eventArgs.Body.ToArray());
+            using var document = JsonDocument.Parse(json);
+            LogEvent(document.RootElement);
         }
         catch (Exception exception)
         {
             _logger.LogError(exception, "Event processing failed");
+        }
+    }
+
+    private void LogEvent(JsonElement eventData)
+    {
+        if (!eventData.TryGetProperty("EventType", out var eventTypeElement))
+        {
+            return;
+        }
+
+        var eventType = eventTypeElement.GetString();
+        switch (eventType)
+        {
+            case "RankCalculated":
+                LogRankCalculatedEvent(eventData);
+                break;
+            case "SimilarityCalculated":
+                LogSimilarityCalculatedEvent(eventData);
+                break;
+            default:
+                _logger.LogWarning("Unknown event type: {EventType}", eventType);
+                break;
         }
     }
 

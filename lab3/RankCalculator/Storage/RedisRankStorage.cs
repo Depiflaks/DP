@@ -17,7 +17,9 @@ public class RedisRankStorage : IRankStorage
         var value = await _database.StringGetAsync($"TEXT-{textId}");
 
         if (value.IsNullOrEmpty)
+        {
             return null;
+        }
 
         return value.ToString();
     }

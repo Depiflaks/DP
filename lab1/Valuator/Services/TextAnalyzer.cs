@@ -5,33 +5,22 @@ public class TextAnalyzer : ITextAnalyzer
     public double CalculateRank(string text)
     {
         if (string.IsNullOrEmpty(text))
-            return 0;
-        var nonAlphabetCount = 0;
-        int totalCount = text.Length;
-        foreach (char c in text) 
         {
-            if (!char.IsLetter(c))
-            {
-                nonAlphabetCount++;
-            }
+            return 0;
         }
-        return (double)nonAlphabetCount / totalCount;
+
+        return (double)text.Count(character => !char.IsLetter(character)) / text.Length;
     }
 
     public double CalculateSimilarity(string newText, IEnumerable<string> existingTexts)
     {
-        if (string.IsNullOrEmpty(newText) || !existingTexts.Any())
-            return 0;
-
-        var currSimilarity = 0;
-
-        foreach (var existing in existingTexts)
+        if (string.IsNullOrEmpty(newText))
         {
-            if (string.Equals(existing, newText, StringComparison.OrdinalIgnoreCase)) 
-            {
-                currSimilarity = 1;
-            }
+            return 0;
         }
-        return currSimilarity;
+
+        return existingTexts.Any(existing => string.Equals(existing, newText, StringComparison.OrdinalIgnoreCase))
+            ? 1
+            : 0;
     }
 }

@@ -12,8 +12,6 @@ public class Program
         RegisterServices(builder.Services);
 
         var app = builder.Build();
-
-        // Configure the HTTP request pipeline.
         if (!app.Environment.IsDevelopment())
         {
             app.UseExceptionHandler("/Error");
@@ -25,12 +23,7 @@ public class Program
         app.UseAuthorization();
 
         app.MapRazorPages();
-
-        // TODO: only for testing
-        app.MapGet("/instance", () => new
-        {
-            Instance = Environment.MachineName
-        });
+        app.MapGet("/instance", () => new { Instance = Environment.MachineName });
 
         app.Run();
     }

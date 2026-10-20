@@ -52,7 +52,9 @@ public class RedisStorageService : IStorageService
         {
             var value = _redisDb.StringGet(key);
             if (value.HasValue)
+            {
                 yield return value!;
+            }
         }
     }
 

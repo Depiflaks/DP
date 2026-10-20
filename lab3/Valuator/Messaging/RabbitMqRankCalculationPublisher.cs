@@ -30,23 +30,7 @@ public sealed class RabbitMqRankCalculationPublisher : IRankCalculationPublisher
                 TextId = textId
             };
 
-            var json = JsonSerializer.Serialize(message);
-            var body = Encoding.UTF8.GetBytes(json);
-
-            var properties = new BasicProperties
-            {
-                ContentType = "application/json",
-                DeliveryMode = DeliveryModes.Persistent
-            };
-
-            await _channel!.BasicPublishAsync(
-                exchange: string.Empty,
-                routingKey: _options.QueueName,
-                mandatory: false,
-                basicProperties: properties,
-                body: body,
-                cancellationToken: cancellationToken
-            );
+            await PublishMessageAsync(message, cancellationToken);
         }
         finally
         {
@@ -54,10 +38,33 @@ public sealed class RabbitMqRankCalculationPublisher : IRankCalculationPublisher
         }
     }
 
+    private async Task PublishMessageAsync(RankCalculationMessage message, CancellationToken cancellationToken)
+    {
+        var json = JsonSerializer.Serialize(message);
+        var body = Encoding.UTF8.GetBytes(json);
+
+        var properties = new BasicProperties
+        {
+            ContentType = "application/json",
+            DeliveryMode = DeliveryModes.Persistent
+        };
+
+        await _channel!.BasicPublishAsync(
+            exchange: string.Empty,
+            routingKey: _options.QueueName,
+            mandatory: false,
+            basicProperties: properties,
+            body: body,
+            cancellationToken: cancellationToken
+        );
+    }
+
     private async Task EnsureConnectedAsync(CancellationToken cancellationToken)
     {
         if (_channel is not null && _channel.IsOpen)
+        {
             return;
+        }
 
         var factory = new ConnectionFactory
         {

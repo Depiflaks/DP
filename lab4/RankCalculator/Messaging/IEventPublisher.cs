@@ -1,5 +1,3 @@
-using RankCalculator.Models;
-
 namespace RankCalculator;
 
 public interface IEventPublisher

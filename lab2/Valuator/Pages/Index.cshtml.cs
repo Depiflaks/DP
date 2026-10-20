@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using StackExchange.Redis;
 using Valuator.Services;
 
 namespace Valuator.Pages;
@@ -28,18 +27,20 @@ public class IndexModel : PageModel
 
     public IActionResult OnPost(string text)
     {
-        _logger.LogDebug(text);
-        string id = Guid.NewGuid().ToString();
-        if (!string.IsNullOrEmpty(text)) 
+        _logger.LogDebug("Submitted text: {Text}", text);
+        var id = Guid.NewGuid().ToString();
+        if (string.IsNullOrEmpty(text))
         {
-            double rank = _analyzer.CalculateRank(text);
-            var allTexts = _storage.GetAllTexts();
-            double similarity = _analyzer.CalculateSimilarity(text, allTexts);
-            
-            _storage.SaveText(id, text);
-            _storage.SaveRank(id, rank);
-            _storage.SaveSimilarity(id, similarity);
+            return Redirect($"summary?id={id}");
         }
+
+        var rank = _analyzer.CalculateRank(text);
+        var allTexts = _storage.GetAllTexts();
+        var similarity = _analyzer.CalculateSimilarity(text, allTexts);
+
+        _storage.SaveText(id, text);
+        _storage.SaveRank(id, rank);
+        _storage.SaveSimilarity(id, similarity);
 
         return Redirect($"summary?id={id}");
     }

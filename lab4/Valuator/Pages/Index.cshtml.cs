@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using StackExchange.Redis;
 using Valuator.Messaging;
 using Valuator.Services;
 
@@ -32,19 +31,21 @@ public class IndexModel : PageModel
 
     public async Task<IActionResult> OnPostAsync(string text)
     {
-        _logger.LogDebug(text);
-        string id = Guid.NewGuid().ToString();
-        if (!string.IsNullOrEmpty(text))
+        _logger.LogDebug("Submitted text: {Text}", text);
+        var id = Guid.NewGuid().ToString();
+        if (string.IsNullOrEmpty(text))
         {
-            var allTexts = _storage.GetAllTexts();
-            var similarity = _analyzer.CalculateSimilarity(text, allTexts);
-
-            _storage.SaveText(id, text);
-            _storage.SaveSimilarity(id, similarity);
-
-            await _messagePublisher.PublishSimilarityCalculatedAsync(id, similarity);
-            await _messagePublisher.PublishRankCalculationAsync(id);
+            return Redirect($"summary?id={id}");
         }
+
+        var allTexts = _storage.GetAllTexts();
+        var similarity = _analyzer.CalculateSimilarity(text, allTexts);
+
+        _storage.SaveText(id, text);
+        _storage.SaveSimilarity(id, similarity);
+
+        await _messagePublisher.PublishSimilarityCalculatedAsync(id, similarity);
+        await _messagePublisher.PublishRankCalculationAsync(id);
 
         return Redirect($"summary?id={id}");
     }

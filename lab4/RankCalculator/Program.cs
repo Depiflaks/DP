@@ -1,5 +1,4 @@
 using RankCalculator;
-using RankCalculator.Messaging;
 using RankCalculator.Services;
 using RankCalculator.Storage;
 using StackExchange.Redis;

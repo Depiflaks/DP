@@ -25,9 +25,9 @@ public sealed class RabbitMqMessagePublisher : IMessagePublisher, IAsyncDisposab
         };
 
         await PublishInternalAsync(
-            exchange: string.Empty, 
-            routingKey: _options.QueueName, 
-            message: message, 
+            exchange: string.Empty,
+            routingKey: _options.QueueName,
+            message: message,
             cancellationToken: cancellationToken
         );
     }
@@ -41,9 +41,9 @@ public sealed class RabbitMqMessagePublisher : IMessagePublisher, IAsyncDisposab
         };
 
         await PublishInternalAsync(
-            exchange: _options.EventsExchange, 
-            routingKey: string.Empty, 
-            message: similarityEvent, 
+            exchange: _options.EventsExchange,
+            routingKey: string.Empty,
+            message: similarityEvent,
             cancellationToken: cancellationToken
         );
     }
@@ -56,23 +56,7 @@ public sealed class RabbitMqMessagePublisher : IMessagePublisher, IAsyncDisposab
         {
             await EnsureConnectedAsync(cancellationToken);
 
-            var json = JsonSerializer.Serialize(message);
-            var body = Encoding.UTF8.GetBytes(json);
-
-            var properties = new BasicProperties
-            {
-                ContentType = "application/json",
-                DeliveryMode = DeliveryModes.Persistent
-            };
-
-            await _channel!.BasicPublishAsync(
-                exchange: exchange,
-                routingKey: routingKey,
-                mandatory: false,
-                basicProperties: properties,
-                body: body,
-                cancellationToken: cancellationToken
-            );
+            await PublishMessageAsync(exchange, routingKey, message, cancellationToken);
         }
         finally
         {
@@ -80,10 +64,34 @@ public sealed class RabbitMqMessagePublisher : IMessagePublisher, IAsyncDisposab
         }
     }
 
+    private async Task PublishMessageAsync<T>(
+        string exchange, string routingKey, T message, CancellationToken cancellationToken)
+    {
+        var json = JsonSerializer.Serialize(message);
+        var body = Encoding.UTF8.GetBytes(json);
+
+        var properties = new BasicProperties
+        {
+            ContentType = "application/json",
+            DeliveryMode = DeliveryModes.Persistent
+        };
+
+        await _channel!.BasicPublishAsync(
+            exchange: exchange,
+            routingKey: routingKey,
+            mandatory: false,
+            basicProperties: properties,
+            body: body,
+            cancellationToken: cancellationToken
+        );
+    }
+
     private async Task EnsureConnectedAsync(CancellationToken cancellationToken)
     {
         if (_channel is not null && _channel.IsOpen)
+        {
             return;
+        }
 
         var factory = new ConnectionFactory
         {
@@ -95,7 +103,12 @@ public sealed class RabbitMqMessagePublisher : IMessagePublisher, IAsyncDisposab
         _connection = await factory.CreateConnectionAsync(cancellationToken);
         _channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
 
-        await _channel.QueueDeclareAsync(
+        await ConfigureChannelAsync(cancellationToken);
+    }
+
+    private async Task ConfigureChannelAsync(CancellationToken cancellationToken)
+    {
+        await _channel!.QueueDeclareAsync(
             queue: _options.QueueName,
             durable: true,
             exclusive: false,

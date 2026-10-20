@@ -37,23 +37,7 @@ public sealed class RabbitMqEventPublisher : IEventPublisher, IAsyncDisposable
         {
             await EnsureConnectedAsync(cancellationToken);
 
-            var json = JsonSerializer.Serialize(eventData);
-            var body = Encoding.UTF8.GetBytes(json);
-
-            var properties = new BasicProperties
-            {
-                ContentType = "application/json",
-                DeliveryMode = DeliveryModes.Persistent
-            };
-
-            await _channel!.BasicPublishAsync(
-                exchange: _options.EventsExchange,
-                routingKey: string.Empty,
-                mandatory: false,
-                basicProperties: properties,
-                body: body,
-                cancellationToken: cancellationToken
-            );
+            await PublishMessageAsync(eventData, cancellationToken);
         }
         finally
         {
@@ -61,10 +45,33 @@ public sealed class RabbitMqEventPublisher : IEventPublisher, IAsyncDisposable
         }
     }
 
+    private async Task PublishMessageAsync<T>(T eventData, CancellationToken cancellationToken) where T : class
+    {
+        var json = JsonSerializer.Serialize(eventData);
+        var body = Encoding.UTF8.GetBytes(json);
+
+        var properties = new BasicProperties
+        {
+            ContentType = "application/json",
+            DeliveryMode = DeliveryModes.Persistent
+        };
+
+        await _channel!.BasicPublishAsync(
+            exchange: _options.EventsExchange,
+            routingKey: string.Empty,
+            mandatory: false,
+            basicProperties: properties,
+            body: body,
+            cancellationToken: cancellationToken
+        );
+    }
+
     private async Task EnsureConnectedAsync(CancellationToken cancellationToken)
     {
         if (_channel is not null && _channel.IsOpen)
+        {
             return;
+        }
 
         var factory = new ConnectionFactory
         {
